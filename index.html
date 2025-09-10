@@ -220,6 +220,7 @@
       else { $compass.style.display='grid'; }
     });
   });
+
   function bearingBetween(a,b){
     const toRad=d=>d*Math.PI/180, toDeg=r=>r*180/Math.PI;
     const lat1=toRad(a.lat), lon1=toRad(a.lng), lat2=toRad(b.lat), lon2=toRad(b.lng);
@@ -227,13 +228,15 @@
     const x=Math.cos(lat1)*Math.sin(lat2)-Math.sin(lat1)*Math.cos(lat2)*Math.cos(lon2-lon1);
     return (toDeg(Math.atan2(y,x))+360)%360;
   }
+
   function rotateMap(bearingDeg){
-    const pane=map.getPanes().mapPane;
-    currentBearing=bearingDeg||0;
-    pane.style.transform=`rotate(${currentBearing}deg)`;
-    const offsetX=(window.innerWidth/2 - map.latLngToLayerPoint(map.getCenter()).x);
-    const offsetY=(window.innerHeight/2 - map.latLngToLayerPoint(map.getCenter()).y);
-    map.panBy([offsetX, -offsetY], {animate:false});
+    const pane = map.getPanes().mapPane;
+    currentBearing = bearingDeg || 0;
+    pane.style.transform = `rotate(${currentBearing}deg)`;
+    // マップの回転に合わせて中心を再設定
+    if(lastLatLng) {
+      map.panTo(lastLatLng, {animate: false});
+    }
   }
 
   /* ==== TTS ==== */
@@ -422,8 +425,10 @@
     trackPoints.push(here);
 
     me.setLatLng(here);
+
+    // keepCenteredがチェックされている場合は、マップの中心を常に自車に合わせる
     if(keepCentered.checked){
-      map.setView(here, Math.max(map.getZoom()||16,16), {animate:false});
+      map.panTo(here, {animate: false});
     }
 
     const latlngs = trackLine.getLatLngs();
