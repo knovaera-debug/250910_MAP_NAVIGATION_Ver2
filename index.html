@@ -465,7 +465,16 @@
 
     // keepCenteredがチェックされている場合は、マップの中心を常に自車に合わせる
     if(keepCentered.checked){
-      map.panTo(here, {animate: false});
+      // マップの中心を自車に合わせる
+      map.panTo(here, { animate: false });
+
+      // パネルが表示されている場合は、中心を右にずらすことで自車を画面中央に表示する
+      if (!panel.classList.contains('panel-hidden')) {
+        const panelWidth = panel.offsetWidth;
+        // x軸のみをずらす (半分ずらすと自車が画面の中心にくる)
+        const offset = L.point(panelWidth / 2, 0); 
+        map.panBy(offset, { animate: false });
+      }
     }
 
     const latlngs = trackLine.getLatLngs();
