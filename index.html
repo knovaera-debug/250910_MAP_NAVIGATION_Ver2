@@ -100,6 +100,12 @@
     <label><input type="radio" name="orient" value="north" checked />北を上</label>
     <label><input type="radio" name="orient" value="course" />進行方向を上</label>
   </div>
+  
+  <div class="row">
+    <button id="lockPortrait">縦向きに固定</button>
+    <button id="lockLandscape">横向きに固定</button>
+    <button id="unlockOrientation">固定解除</button>
+  </div>
 
   <div class="row">
     <button id="tts">音声テスト</button>
@@ -189,6 +195,9 @@
   const saveYesBtn = document.getElementById('save-yes');
   const saveNoBtn = document.getElementById('save-no');
   const voiceSelect = document.getElementById('voiceSelect');
+  const lockPortraitBtn = document.getElementById('lockPortrait');
+  const lockLandscapeBtn = document.getElementById('lockLandscape');
+  const unlockOrientationBtn = document.getElementById('unlockOrientation');
 
   /* ==== パネル表示/非表示 ==== */
   togglePanelBtn.addEventListener('click', () => {
@@ -215,6 +224,26 @@
     }catch(e){ toast('画面オフ防止を取得できません'); }
   }
   wake.addEventListener('click',toggleWake);
+
+  /* ==== 画面向きの固定 ==== */
+  if (screen.orientation && screen.orientation.lock) {
+    lockPortraitBtn.addEventListener('click', async () => {
+      try { await screen.orientation.lock('portrait'); toast('画面を縦向きに固定しました'); }
+      catch (e) { toast('縦向きに固定できません'); }
+    });
+    lockLandscapeBtn.addEventListener('click', async () => {
+      try { await screen.orientation.lock('landscape'); toast('画面を横向きに固定しました'); }
+      catch (e) { toast('横向きに固定できません'); }
+    });
+    unlockOrientationBtn.addEventListener('click', async () => {
+      try { await screen.orientation.unlock(); toast('画面固定を解除しました'); }
+      catch (e) { toast('画面固定を解除できません'); }
+    });
+  } else {
+    lockPortraitBtn.style.display = 'none';
+    lockLandscapeBtn.style.display = 'none';
+    unlockOrientationBtn.style.display = 'none';
+  }
 
   /* ==== 方位・回転 ==== */
   let currentBearing=0, orientationMode='north';
@@ -471,7 +500,6 @@
       // パネルが表示されている場合は、中心を右にずらすことで自車を画面中央に表示する
       if (!panel.classList.contains('panel-hidden')) {
         const panelWidth = panel.offsetWidth;
-        // x軸のみをずらす (半分ずらすと自車が画面の中心にくる)
         const offset = L.point(panelWidth / 2, 0); 
         map.panBy(offset, { animate: false });
       }
