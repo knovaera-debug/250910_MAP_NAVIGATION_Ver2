@@ -243,7 +243,18 @@
   let ttsQueue=[],speaking=false,jpVoice=null,ttsUnlocked=false,ttsRate=1.0;
   const $ttsRate=document.getElementById('ttsRate'),$ttsRateVal=document.getElementById('ttsRateVal');
   $ttsRate.addEventListener('input',()=>{ttsRate=+$ttsRate.value; $ttsRateVal.textContent=ttsRate.toFixed(1);});
-  function unlockTTS(){if(ttsUnlocked)return;ttsUnlocked=true; speechSynthesis.cancel(); jpVoice=speechSynthesis.getVoices().find(v=>/ja-JP|japan/i.test(v.lang))||speechSynthesis.getVoices()[0]||null;}
+  function unlockTTS(){
+    if(ttsUnlocked)return;
+    ttsUnlocked=true;
+    speechSynthesis.cancel();
+    // 女性の日本語音声を優先的に選択
+    const voices = speechSynthesis.getVoices();
+    jpVoice = voices.find(v => /ja-JP/i.test(v.lang) && /female|woman|fumi|mei/i.test(v.name)) ||
+              voices.find(v => /ja-JP/i.test(v.lang)) ||
+              voices.find(v => /japanese/i.test(v.lang)) ||
+              voices[0] ||
+              null;
+  }
   speechSynthesis.addEventListener('voiceschanged',unlockTTS);
   function enqueueSpeech(lines){for(const s of lines){const u=new SpeechSynthesisUtterance(String(s)); if(jpVoice)u.voice=jpVoice; u.rate=ttsRate; u.pitch=1.0; ttsQueue.push(u);} if(!speaking)speakNext();}
   function speakNext(){if(!ttsQueue.length){speaking=false;return;}speaking=true;const u=ttsQueue.shift();u.onend=()=>{speaking=false;speakNext();};speechSynthesis.speak(u);}
