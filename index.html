@@ -107,6 +107,10 @@
   </div>
 
   <div class="row">
+    <select id="voiceSelect" class="grow"></select>
+  </div>
+
+  <div class="row">
     <label class="small" for="ttsRate">話す速度: <span id="ttsRateVal">1.0</span>x</label>
     <input id="ttsRate" type="range" min="0.6" max="1.6" step="0.1" value="1.0" style="width:180px; margin-left:8px;">
   </div>
@@ -184,6 +188,7 @@
   const filenameInput = document.getElementById('filename-input');
   const saveYesBtn = document.getElementById('save-yes');
   const saveNoBtn = document.getElementById('save-no');
+  const voiceSelect = document.getElementById('voiceSelect');
 
   /* ==== パネル表示/非表示 ==== */
   togglePanelBtn.addEventListener('click', () => {
@@ -247,16 +252,34 @@
     if(ttsUnlocked)return;
     ttsUnlocked=true;
     speechSynthesis.cancel();
-    // 日本語の音声を優先的に選択
+    
+    // 利用可能な音声リストを取得
     const voices = speechSynthesis.getVoices();
-    jpVoice = voices.find(v => /ja-JP/i.test(v.lang)) ||
-              voices.find(v => /japanese/i.test(v.lang)) ||
-              voices[0] ||
-              null;
-    // iOS/iPadOSで特定の音声（Kyokoなど）を明示的に指定する場合
-    // 下記のコードを有効にすることで、日本語の中で 'Kyoko' を優先的に選択できますが、
-    // OSやブラウザに依存するため、安定性を優先する場合は上記のコードが推奨されます。
-    // jpVoice = voices.find(v => v.name === "Kyoko" && /ja-JP/i.test(v.lang)) || jpVoice;
+    voiceSelect.innerHTML = ''; // リストをクリア
+    
+    // ドロップダウンリストに音声を追加
+    voices.forEach(voice => {
+      const option = document.createElement('option');
+      option.textContent = `${voice.name} (${voice.lang})`;
+      option.value = voice.name;
+      
+      // 日本語の音声を優先的に選択
+      if (/ja-JP/i.test(voice.lang) && !jpVoice) {
+        jpVoice = voice;
+        option.selected = true;
+      }
+      voiceSelect.appendChild(option);
+    });
+    
+    // ドロップダウンで選択された音声をjpVoiceに設定
+    voiceSelect.addEventListener('change', () => {
+      const selectedVoiceName = voiceSelect.value;
+      jpVoice = voices.find(v => v.name === selectedVoiceName);
+    });
+    
+    if (!jpVoice && voices.length > 0) {
+      jpVoice = voices[0];
+    }
   }
   speechSynthesis.addEventListener('voiceschanged',unlockTTS);
   function enqueueSpeech(lines){for(const s of lines){const u=new SpeechSynthesisUtterance(String(s)); if(jpVoice)u.voice=jpVoice; u.rate=ttsRate; u.pitch=1.0; ttsQueue.push(u);} if(!speaking)speakNext();}
