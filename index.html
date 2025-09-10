@@ -247,10 +247,9 @@
     if(ttsUnlocked)return;
     ttsUnlocked=true;
     speechSynthesis.cancel();
-    // 女性の日本語音声を優先的に選択
+    // 日本語の音声を優先的に選択
     const voices = speechSynthesis.getVoices();
-    jpVoice = voices.find(v => /ja-JP/i.test(v.lang) && /female|woman|fumi|mei/i.test(v.name)) ||
-              voices.find(v => /ja-JP/i.test(v.lang)) ||
+    jpVoice = voices.find(v => /ja-JP/i.test(v.lang)) ||
               voices.find(v => /japanese/i.test(v.lang)) ||
               voices[0] ||
               null;
