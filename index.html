@@ -253,6 +253,10 @@
               voices.find(v => /japanese/i.test(v.lang)) ||
               voices[0] ||
               null;
+    // iOS/iPadOSで特定の音声（Kyokoなど）を明示的に指定する場合
+    // 下記のコードを有効にすることで、日本語の中で 'Kyoko' を優先的に選択できますが、
+    // OSやブラウザに依存するため、安定性を優先する場合は上記のコードが推奨されます。
+    // jpVoice = voices.find(v => v.name === "Kyoko" && /ja-JP/i.test(v.lang)) || jpVoice;
   }
   speechSynthesis.addEventListener('voiceschanged',unlockTTS);
   function enqueueSpeech(lines){for(const s of lines){const u=new SpeechSynthesisUtterance(String(s)); if(jpVoice)u.voice=jpVoice; u.rate=ttsRate; u.pitch=1.0; ttsQueue.push(u);} if(!speaking)speakNext();}
