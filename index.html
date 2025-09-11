@@ -208,7 +208,7 @@
     } else {
       togglePanelBtn.style.display = 'none';
     }
-    updateMapCenter(); // パネル表示切り替え時に中心を再計算
+    updateMapCenter();
   });
 
   panel.addEventListener('click', (e) => {
@@ -217,10 +217,9 @@
     }
     panel.classList.add('panel-hidden');
     togglePanelBtn.style.display = 'block';
-    updateMapCenter(); // パネル表示切り替え時に中心を再計算
+    updateMapCenter();
   });
   
-  // 画面の向きが変わったときにも中心を再調整
   window.addEventListener('orientationchange', updateMapCenter);
   window.addEventListener('resize', updateMapCenter);
 
@@ -277,7 +276,6 @@
     updateMapCenter();
   }
   
-  // ===== 修正点: 自車位置センタリング処理 =====
   function updateMapCenter() {
     if (!lastLatLng || !keepCentered.checked) return;
   
@@ -355,10 +353,8 @@
     clearDataLayers(); trackLayer.clearLayers(); checkpointLayer.clearLayers();
   }
 
-  /* ==== 自車位置（赤）と精度サークル ==== */
-  // ===== 修正点: 自車位置マーカーに白色の枠線を追加 =====
+  /* ==== 自車位置と精度サークル ==== */
   const me=L.circleMarker([35.681,139.767],{radius:7,fillColor:'#ef4444',color:'#ffffff',weight:2,fillOpacity:1}).addTo(map);
-  // ===== 修正点: GPS精度を示すためのサークルを追加 =====
   const accuracyCircle = L.circle([35.681, 139.767], {radius: 0, color: '#0ea5e9', fillColor: '#0ea5e9', fillOpacity: 0.15, stroke: false}).addTo(map);
   const trackLine=L.polyline([], {color:'#0ea5e9', weight:6, opacity:.9}).addTo(trackLayer);
 
@@ -492,7 +488,6 @@
   const trackPoints = [];
   const cps=[];
 
-  // ===== 修正点: onPosition関数をGPS精度表示に対応 =====
   function onPosition(pos){
     const here = L.latLng(pos.coords.latitude, pos.coords.longitude);
     const accuracy = pos.coords.accuracy;
@@ -503,11 +498,10 @@
     accuracyCircle.setLatLng(here);
     accuracyCircle.setRadius(accuracy);
 
-    // 精度に応じて自車マーカーの色を変更
     if (accuracy > 50) {
-      me.setStyle({fillColor: '#f59e0b'}); // 精度が悪い場合はオレンジ
+      me.setStyle({fillColor: '#f59e0b'});
     } else {
-      me.setStyle({fillColor: '#ef4444'}); // 精度が良い場合は赤
+      me.setStyle({fillColor: '#ef4444'});
     }
 
     if(lastLatLng){
@@ -529,7 +523,6 @@
       $compassArrow.style.transform=`translateY(4px) rotate(${bearing}deg)`;
     }
 
-    // パネルに距離とGPS精度を表示
     stat.textContent = `距離: ${(distanceTravelled/1000).toFixed(2)} km / 精度: ${Math.round(accuracy)} m`;
     checkNearAndSpeak(here);
   }
@@ -545,6 +538,9 @@
     trackPoints.length = 0;
     trackLine.setLatLngs([]); checkpointLayer.clearLayers();
     notified.clear();
+    // ===== 修正点: 追跡開始時に前回の位置情報を確実にリセット =====
+    lastLatLng = null;
+    prevLatLng = null;
 
     let sweep=0; clearInterval(startupSweepTimer);
     startupSweepTimer=setInterval(()=>{ if(!tracking){clearInterval(startupSweepTimer);return;}
