@@ -70,6 +70,30 @@
   }
   #save-yes { background-color: #38a169; }
   #save-no { background-color: #e53e3e; }
+  /* Choice B: Live Info Panel Style */
+  #live-info {
+    border-top: 1px solid #e2e8f0;
+    margin-top: 10px;
+    padding-top: 10px;
+    font-size: 13px;
+  }
+  #live-info h2 {
+    margin: 0 0 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #334155;
+  }
+  #live-info p {
+    margin: 4px 0;
+    display: flex;
+    justify-content: space-between;
+  }
+  #live-info p span {
+    font-weight: bold;
+    color: #1e293b;
+    min-width: 80px;
+    text-align: right;
+  }
 </style>
 </head>
 <body>
@@ -130,7 +154,14 @@
     <button id="saveGpx" disabled>GPX保存</button>
     <span id="stat" class="small"></span>
   </div>
-</div>
+
+  <div id="live-info" style="display: none;">
+    <h2>ライブ情報</h2>
+    <p>速度: <span id="live-speed">-- km/h</span></p>
+    <p>高度: <span id="live-altitude">-- m</span></p>
+    <p>GPS精度: <span id="live-accuracy">-- m</span></p>
+  </div>
+  </div>
 
 <button id="toggle-panel">☰</button>
 
@@ -199,6 +230,11 @@
   const lockPortraitBtn = document.getElementById('lockPortrait');
   const lockLandscapeBtn = document.getElementById('lockLandscape');
   const unlockOrientationBtn = document.getElementById('unlockOrientation');
+  // Choice B: Live Info Elements
+  const liveInfoPanel = document.getElementById('live-info');
+  const liveSpeed = document.getElementById('live-speed');
+  const liveAltitude = document.getElementById('live-altitude');
+  const liveAccuracy = document.getElementById('live-accuracy');
 
   /* ==== パネル表示/非表示 ==== */
   togglePanelBtn.addEventListener('click', () => {
@@ -208,7 +244,7 @@
     } else {
       togglePanelBtn.style.display = 'none';
     }
-    updateMapCenter(); // パネル表示切り替え時に中心を再計算
+    updateMapCenter();
   });
 
   panel.addEventListener('click', (e) => {
@@ -217,7 +253,7 @@
     }
     panel.classList.add('panel-hidden');
     togglePanelBtn.style.display = 'block';
-    updateMapCenter(); // パネル表示切り替え時に中心を再計算
+    updateMapCenter();
   });
   
   // 画面の向きが変わったときにも中心を再調整
@@ -278,29 +314,30 @@
   }
 
   function updateMapCenter() {
-    if (!lastLatLng || !keepCentered.checked) return;
+    setTimeout(() => {
+        if (!lastLatLng || !keepCentered.checked) return;
 
-    const mapSize = map.getSize();
-    const panelWidth = panel.offsetWidth;
-    const panelVisible = !panel.classList.contains('panel-hidden');
+        map.invalidateSize();
 
-    // 基準となる中心座標を決定
-    let targetX = mapSize.x / 2;
-    let targetY = mapSize.y / 2;
+        const mapSize = map.getSize();
+        const panelWidth = panel.offsetWidth;
+        const panelVisible = !panel.classList.contains('panel-hidden');
 
-    if (panelVisible) {
-      targetX = mapSize.x / 2 + panelWidth / 2;
-    }
+        let targetX = mapSize.x / 2;
+        let targetY = mapSize.y / 2;
 
-    // 自車位置を新しい中心にセット
-    map.panTo(lastLatLng, { animate: false });
-    
-    // 自車が真ん中にある状態で、地図全体を目的の基準座標へオフセット
-    const mePoint = map.latLngToContainerPoint(lastLatLng);
-    const offsetX = targetX - mePoint.x;
-    const offsetY = targetY - mePoint.y;
+        if (panelVisible) {
+            targetX = (mapSize.x / 2) + (panelWidth / 2);
+        }
+        
+        map.panTo(lastLatLng, { animate: false });
+        
+        const mePoint = map.latLngToContainerPoint(lastLatLng);
+        const offsetX = targetX - mePoint.x;
+        const offsetY = targetY - mePoint.y;
 
-    map.panBy(L.point(offsetX, offsetY), { animate: false });
+        map.panBy(L.point(offsetX, offsetY), { animate: false });
+    }, 100);
   }
 
   /* ==== TTS ==== */
@@ -318,18 +355,13 @@
     let preferredVoice = null;
     const jaVoices = voices.filter(v => /ja-JP/i.test(v.lang));
 
-    // 優先度順に女性の声を探す
-    // 1. 具体的な名前や"Female"を含む音声
     preferredVoice = jaVoices.find(v => /Kyoko|O-ren|Ayumi|Haruka|Female|女性/i.test(v.name));
-    // 2. 上で見つからなければ、最初の日本語音声
     if (!preferredVoice && jaVoices.length > 0) {
       preferredVoice = jaVoices[0];
     }
-    // 3. 日本語がなければ、最初の利用可能な音声
     if (!preferredVoice && voices.length > 0) {
       preferredVoice = voices[0];
     }
-
     jpVoice = preferredVoice;
 
     voices.forEach(voice => {
@@ -373,8 +405,8 @@
   }
 
   /* ==== 自車位置（赤） ==== */
-  const me=L.circleMarker([35.681,139.767],{radius:7,fillColor:'#ef4444',fillOpacity:1, stroke: false}).addTo(map); // 赤の塗りつぶし、線なし
-  const trackLine=L.polyline([], {color:'#0ea5e9', weight:6, opacity:.9}).addTo(trackLayer); // 走行ルートを青色、太さ6に
+  const me=L.circleMarker([35.681,139.767],{radius:7,fillColor:'#ef4444',fillOpacity:1, stroke: false}).addTo(map);
+  const trackLine=L.polyline([], {color:'#0ea5e9', weight:6, opacity:.9}).addTo(trackLayer);
 
   /* ==== データセット管理（複数ファイル切替） ==== */
   const datasetMap=new Map();
@@ -522,7 +554,15 @@
     trackPoints.push(here);
 
     me.setLatLng(here);
-    updateMapCenter(); // マップの中心更新を呼び出す
+    updateMapCenter();
+
+    // Choice B: Update live info
+    const speed = pos.coords.speed; // m/s
+    const altitude = pos.coords.altitude; // meters
+    const accuracy = pos.coords.accuracy; // meters
+    liveSpeed.textContent = speed !== null ? `${(speed * 3.6).toFixed(1)} km/h` : '-- km/h';
+    liveAltitude.textContent = altitude !== null ? `${altitude.toFixed(1)} m` : '-- m';
+    liveAccuracy.textContent = accuracy !== null ? `${accuracy.toFixed(1)} m` : '-- m';
 
     const latlngs = trackLine.getLatLngs();
     latlngs.push(here); trackLine.setLatLngs(latlngs);
@@ -543,6 +583,9 @@
     unlockTTS();
     tracking=true; start.disabled=true; stop.disabled=false; fabStop.style.display='grid'; document.getElementById('recBadge').style.display='flex';
     enqueueSpeech(['評価を開始します']);
+    
+    // Choice B: Show live info panel
+    liveInfoPanel.style.display = 'block';
 
     distanceTravelled=0; distanceTravelledSinceSpeak=0;
     trackPoints.length = 0;
@@ -572,10 +615,14 @@
     navigator.geolocation.clearWatch?.(watchId); watchId=null;
     clearInterval(startupSweepTimer); clearInterval(gpsWeakTimer);
     start.disabled=false; stop.disabled=true; fabStop.style.display='none'; document.getElementById('recBadge').style.display='none';
+    
+    // Choice B: Hide live info panel
+    liveInfoPanel.style.display = 'none';
+
     rotateMap(0); $compass.style.display='none';
     unlockTTS(); enqueueSpeech(['評価を終了します']);
     cpBtn.disabled=true;
-    
+
     if (trackPoints.length === 0) {
         toast('走行記録がありません', 1500);
         return;
