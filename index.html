@@ -277,30 +277,22 @@
     updateMapCenter();
   }
 
+  // ===== 修正点 2: 自車位置センタリング処理の改善 =====
+  // 複雑だった計算を止め、LeafletのsetViewOffset機能を利用して堅牢化
   function updateMapCenter() {
-    if (!lastLatLng || !keepCentered.checked) return;
-
-    const mapSize = map.getSize();
+    if (!lastLatLng || !keepCentered.checked) {
+      map.setViewOffset(L.point(0, 0)); // 中心維持がオフの時はオフセットを解除
+      return;
+    }
+  
     const panelWidth = panel.offsetWidth;
     const panelVisible = !panel.classList.contains('panel-hidden');
-
-    // 基準となる中心座標を決定
-    let targetX = mapSize.x / 2;
-    let targetY = mapSize.y / 2;
-
-    if (panelVisible) {
-      targetX = mapSize.x / 2 + panelWidth / 2;
-    }
-
-    // 自車位置を新しい中心にセット
-    map.panTo(lastLatLng, { animate: false });
+  
+    // パネルが表示されている場合、その幅の半分だけ地図の中心を右にずらす
+    const offsetX = panelVisible ? panelWidth / 2 : 0;
     
-    // 自車が真ん中にある状態で、地図全体を目的の基準座標へオフセット
-    const mePoint = map.latLngToContainerPoint(lastLatLng);
-    const offsetX = targetX - mePoint.x;
-    const offsetY = targetY - mePoint.y;
-
-    map.panBy(L.point(offsetX, offsetY), { animate: false });
+    map.setViewOffset(L.point(offsetX, 0));
+    map.panTo(lastLatLng, { animate: false });
   }
 
   /* ==== TTS ==== */
@@ -423,7 +415,8 @@
       (p.looksRoute? routeMarkerLayer: pointLayer).addLayer(m);
     }
     for(const ring of ds.routes){
-      const poly=L.polyline(ring,{color:'#9ca3af',weight:3,opacity:.8});
+      // ===== 修正点 1: ルートの色を灰色からオレンジへ変更 =====
+      const poly=L.polyline(ring,{color:'#f59e0b',weight:4,opacity:.9}); // colorを'#9ca3af'から変更、weightも少し太く
       routeLineLayer.addLayer(poly);
     }
     const bounds = L.latLngBounds([]);
