@@ -208,12 +208,14 @@
     } else {
       togglePanelBtn.style.display = 'none';
     }
+    updateMapCenter(); // パネル表示切り替え時に中心を再計算
   });
 
   // パネルのコンテンツをクリックして非表示にする
   panel.addEventListener('click', () => {
     panel.classList.add('panel-hidden');
     togglePanelBtn.style.display = 'block';
+    updateMapCenter(); // パネル表示切り替え時に中心を再計算
   });
 
   /* ==== 画面オフ防止 ==== */
@@ -277,16 +279,16 @@
     if (keepCentered.checked) {
       const mapSize = map.getSize();
       const panelWidth = panel.offsetWidth;
-      const panelHeight = panel.offsetHeight; // パネルの高さも考慮する
       const panelVisible = !panel.classList.contains('panel-hidden');
 
+      // 画面の真ん中を基準とするピクセル座標
       let targetX = mapSize.x / 2;
       let targetY = mapSize.y / 2;
 
+      // パネルが表示されている場合、自車を画面の「見えている部分」の中心に移動させる
       if (panelVisible) {
-        // パネルが左にあるので、X座標を右にずらす
-        targetX = (mapSize.x + panelWidth) / 2;
-        // Y座標は基本的に中央でよいが、必要に応じて調整
+        // パネルが左側にあるので、X座標の真ん中を右にずらす
+        targetX = mapSize.x / 2 + (panelWidth / 2);
       }
 
       // 現在の自車のピクセル座標を取得
