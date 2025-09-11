@@ -315,26 +315,32 @@
     const voices = speechSynthesis.getVoices();
     voiceSelect.innerHTML = ''; 
     
+    // 最初に日本語の女性音声を探す
+    let femaleVoice = voices.find(voice => /ja-JP/i.test(voice.lang) && /female|f/i.test(voice.name));
+    
     voices.forEach(voice => {
       const option = document.createElement('option');
       option.textContent = `${voice.name} (${voice.lang})`;
       option.value = voice.name;
       
-      if (/ja-JP/i.test(voice.lang) && !jpVoice) {
-        jpVoice = voice;
+      if (femaleVoice && voice.name === femaleVoice.name) {
         option.selected = true;
       }
       voiceSelect.appendChild(option);
     });
     
+    // 日本語の女性音声が見つかった場合、それを設定する。見つからない場合は、既存のロジックに従い最初の日本語音声を選択する
+    jpVoice = femaleVoice || voices.find(voice => /ja-JP/i.test(voice.lang));
+    
+    // 日本語の音声が全く見つからない場合、利用可能な最初の音声をフォールバックとして設定
+    if (!jpVoice && voices.length > 0) {
+      jpVoice = voices[0];
+    }
+  
     voiceSelect.addEventListener('change', () => {
       const selectedVoiceName = voiceSelect.value;
       jpVoice = voices.find(v => v.name === selectedVoiceName);
     });
-    
-    if (!jpVoice && voices.length > 0) {
-      jpVoice = voices[0];
-    }
   }
   speechSynthesis.addEventListener('voiceschanged',unlockTTS);
   function enqueueSpeech(lines){for(const s of lines){const u=new SpeechSynthesisUtterance(String(s)); if(jpVoice)u.voice=jpVoice; u.rate=ttsRate; u.pitch=1.0; ttsQueue.push(u);} if(!speaking)speakNext();}
