@@ -276,9 +276,8 @@
     pane.style.transform = `rotate(${currentBearing}deg)`;
     updateMapCenter();
   }
-
-  // ===== 修正点: 自車位置センタリング処理を再修正 =====
-  // 縦横画面・回転状態を問わず安定して中央に表示されるようロジックを改善
+  
+  // ===== 修正点: 自車位置センタリング処理 =====
   function updateMapCenter() {
     if (!lastLatLng || !keepCentered.checked) return;
   
@@ -286,20 +285,13 @@
     const panelWidth = panel.offsetWidth;
     const panelVisible = !panel.classList.contains('panel-hidden');
   
-    // 1. パネルを考慮した、自車位置を表示したい画面上の「目標座標」を計算します。
-    // パネルが表示されていれば、その幅の半分だけ目標を右にずらします。
     const targetX = panelVisible ? (mapSize.x + panelWidth) / 2 : mapSize.x / 2;
     const targetY = mapSize.y / 2;
     const targetPoint = L.point(targetX, targetY);
   
-    // 2. 現在の自車位置が画面上のどの座標にあるかを取得します。
     const currentVehiclePoint = map.latLngToContainerPoint(lastLatLng);
-  
-    // 3. 目標座標と現在座標の差分（=移動すべきピクセル量）を計算します。
     const panOffset = targetPoint.subtract(currentVehiclePoint);
   
-    // 4. 差分が0でなければ、その分だけ地図をパン（平行移動）させます。
-    //    これにより、自車位置が目標座標にピッタリ合うことになります。
     if (panOffset.x !== 0 || panOffset.y !== 0) {
       map.panBy(panOffset, { animate: false });
     }
@@ -363,9 +355,12 @@
     clearDataLayers(); trackLayer.clearLayers(); checkpointLayer.clearLayers();
   }
 
-  /* ==== 自車位置（赤） ==== */
-  const me=L.circleMarker([35.681,139.767],{radius:7,fillColor:'#ef4444',fillOpacity:1, stroke: false}).addTo(map); // 赤の塗りつぶし、線なし
-  const trackLine=L.polyline([], {color:'#0ea5e9', weight:6, opacity:.9}).addTo(trackLayer); // 走行ルートを青色、太さ6に
+  /* ==== 自車位置（赤）と精度サークル ==== */
+  // ===== 修正点: 自車位置マーカーに白色の枠線を追加 =====
+  const me=L.circleMarker([35.681,139.767],{radius:7,fillColor:'#ef4444',color:'#ffffff',weight:2,fillOpacity:1}).addTo(map);
+  // ===== 修正点: GPS精度を示すためのサークルを追加 =====
+  const accuracyCircle = L.circle([35.681, 139.767], {radius: 0, color: '#0ea5e9', fillColor: '#0ea5e9', fillOpacity: 0.15, stroke: false}).addTo(map);
+  const trackLine=L.polyline([], {color:'#0ea5e9', weight:6, opacity:.9}).addTo(trackLayer);
 
   /* ==== データセット管理（複数ファイル切替） ==== */
   const datasetMap=new Map();
@@ -497,10 +492,23 @@
   const trackPoints = [];
   const cps=[];
 
+  // ===== 修正点: onPosition関数をGPS精度表示に対応 =====
   function onPosition(pos){
     const here = L.latLng(pos.coords.latitude, pos.coords.longitude);
+    const accuracy = pos.coords.accuracy;
     lastFixTime = Date.now();
     weakGpsWarned=false;
+
+    me.setLatLng(here);
+    accuracyCircle.setLatLng(here);
+    accuracyCircle.setRadius(accuracy);
+
+    // 精度に応じて自車マーカーの色を変更
+    if (accuracy > 50) {
+      me.setStyle({fillColor: '#f59e0b'}); // 精度が悪い場合はオレンジ
+    } else {
+      me.setStyle({fillColor: '#ef4444'}); // 精度が良い場合は赤
+    }
 
     if(lastLatLng){
       const moved = here.distanceTo(L.latLng(lastLatLng));
@@ -510,7 +518,6 @@
     lastLatLng = here;
     trackPoints.push(here);
 
-    me.setLatLng(here);
     updateMapCenter();
 
     const latlngs = trackLine.getLatLngs();
@@ -522,7 +529,8 @@
       $compassArrow.style.transform=`translateY(4px) rotate(${bearing}deg)`;
     }
 
-    stat.textContent = `距離 ${(distanceTravelled/1000).toFixed(2)} km`;
+    // パネルに距離とGPS精度を表示
+    stat.textContent = `距離: ${(distanceTravelled/1000).toFixed(2)} km / 精度: ${Math.round(accuracy)} m`;
     checkNearAndSpeak(here);
   }
   function onPositionError(err){ toast('位置情報を取得できません'); }
