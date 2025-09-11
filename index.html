@@ -390,7 +390,16 @@
   }
 
   /* ==== 自車位置・走行ルート ==== */
-  const me=L.circleMarker([35.681,139.767],{radius:7,fillColor:'#ef4444',fillOpacity:1, stroke: false}).addTo(map);
+  // ▼▼▼ 自車位置マーカーのスタイルを修正 ▼▼▼
+  // stroke: false で枠線なし、fillColorで赤の塗りつぶしを明確に指定
+  const me = L.circleMarker([35.681,139.767], {
+    radius: 7,
+    stroke: false,
+    fill: true,
+    fillColor: '#ef4444',
+    fillOpacity: 1
+  }).addTo(map);
+  
   const trackLineCasing = L.polyline([], {color: '#15803d', weight: 9, opacity: 0.8}).addTo(trackLayer);
   const trackLine = L.polyline([], {color: '#22c55e', weight: 5, opacity: 0.95}).addTo(trackLayer);
 
@@ -452,11 +461,8 @@
       (p.looksRoute? routeMarkerLayer: pointLayer).addLayer(m);
     }
     for(const ring of ds.routes){
-      // 外側の縁取り線（太く、濃い色）
       const casing = L.polyline(ring, {color: '#854d0e', weight: 8, opacity: 0.85});
-      // 内側のメイン線（細く、明るい色）
       const poly = L.polyline(ring, {color: '#f59e0b', weight: 5, opacity: 1});
-      
       routeLineLayer.addLayer(casing);
       routeLineLayer.addLayer(poly);
     }
