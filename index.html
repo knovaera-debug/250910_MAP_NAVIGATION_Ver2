@@ -277,22 +277,32 @@
     updateMapCenter();
   }
 
-  // ===== 修正点 2: 自車位置センタリング処理の改善 =====
-  // 複雑だった計算を止め、LeafletのsetViewOffset機能を利用して堅牢化
+  // ===== 修正点: 自車位置センタリング処理を再修正 =====
+  // 縦横画面・回転状態を問わず安定して中央に表示されるようロジックを改善
   function updateMapCenter() {
-    if (!lastLatLng || !keepCentered.checked) {
-      map.setViewOffset(L.point(0, 0)); // 中心維持がオフの時はオフセットを解除
-      return;
-    }
+    if (!lastLatLng || !keepCentered.checked) return;
   
+    const mapSize = map.getSize();
     const panelWidth = panel.offsetWidth;
     const panelVisible = !panel.classList.contains('panel-hidden');
   
-    // パネルが表示されている場合、その幅の半分だけ地図の中心を右にずらす
-    const offsetX = panelVisible ? panelWidth / 2 : 0;
-    
-    map.setViewOffset(L.point(offsetX, 0));
-    map.panTo(lastLatLng, { animate: false });
+    // 1. パネルを考慮した、自車位置を表示したい画面上の「目標座標」を計算します。
+    // パネルが表示されていれば、その幅の半分だけ目標を右にずらします。
+    const targetX = panelVisible ? (mapSize.x + panelWidth) / 2 : mapSize.x / 2;
+    const targetY = mapSize.y / 2;
+    const targetPoint = L.point(targetX, targetY);
+  
+    // 2. 現在の自車位置が画面上のどの座標にあるかを取得します。
+    const currentVehiclePoint = map.latLngToContainerPoint(lastLatLng);
+  
+    // 3. 目標座標と現在座標の差分（=移動すべきピクセル量）を計算します。
+    const panOffset = targetPoint.subtract(currentVehiclePoint);
+  
+    // 4. 差分が0でなければ、その分だけ地図をパン（平行移動）させます。
+    //    これにより、自車位置が目標座標にピッタリ合うことになります。
+    if (panOffset.x !== 0 || panOffset.y !== 0) {
+      map.panBy(panOffset, { animate: false });
+    }
   }
 
   /* ==== TTS ==== */
@@ -415,8 +425,7 @@
       (p.looksRoute? routeMarkerLayer: pointLayer).addLayer(m);
     }
     for(const ring of ds.routes){
-      // ===== 修正点 1: ルートの色を灰色からオレンジへ変更 =====
-      const poly=L.polyline(ring,{color:'#f59e0b',weight:4,opacity:.9}); // colorを'#9ca3af'から変更、weightも少し太く
+      const poly=L.polyline(ring,{color:'#f59e0b',weight:4,opacity:.9});
       routeLineLayer.addLayer(poly);
     }
     const bounds = L.latLngBounds([]);
@@ -433,7 +442,6 @@
     fname.textContent = ds.name;
     renderDataset(ds);
     notified.clear();
-    distanceTravelledSinceSpeak = 0;
   }
 
   fileInput.addEventListener('change', async (e)=>{
@@ -458,7 +466,6 @@
   });
 
   /* ==== 近接通知 ==== */
-  const RENOTIFY_EVERY_M = 300;
   let notified = new Map();
   function collectNearTexts(here){
     const ds = datasetMap.get(currentKey);
@@ -466,25 +473,25 @@
     const res=[];
     ds.points.forEach((p, idx)=>{
       if(p.looksRoute) return;
-      const d=here.distanceTo(p.latlng);
-      if(d <= notifyRadius){
-        const n=notified.get(idx) || {lastSpokeAtDist:-Infinity};
-        if(!isFinite(n.lastSpokeAtDist) || (distanceTravelled - n.lastSpokeAtDist)>=RENOTIFY_EVERY_M){
-          notified.set(idx, {lastSpokeAtDist:distanceTravelled});
-          res.push(`${p.name||'ポイント'}。${(p.desc||'').replace(/\s+/g,' ')}`);
-        }
+      const d = here.distanceTo(p.latlng);
+      if(d <= notifyRadius && !notified.has(idx)){
+        notified.set(idx, true);
+        res.push(`${p.name||'ポイント'}。${(p.desc||'').replace(/\s+/g,' ')}`);
       }
     });
     return res;
   }
+  
   function checkNearAndSpeak(here){
     const texts = collectNearTexts(here);
-    if(texts.length) { enqueueSpeech(texts); distanceTravelledSinceSpeak = 0; }
+    if(texts.length) { 
+      enqueueSpeech(texts);
+    }
   }
 
   /* ==== 追跡 ==== */
   let tracking=false, watchId=null; let lastLatLng=null, prevLatLng=null; let startupSweepTimer=null;
-  let distanceTravelled=0; let distanceTravelledSinceSpeak=0;
+  let distanceTravelled=0;
   let lastFixTime=0; let weakGpsWarned=false;
   let gpsWeakTimer=null;
   const trackPoints = [];
@@ -497,14 +504,14 @@
 
     if(lastLatLng){
       const moved = here.distanceTo(L.latLng(lastLatLng));
-      distanceTravelled += moved; distanceTravelledSinceSpeak += moved;
+      distanceTravelled += moved;
     }
     prevLatLng = lastLatLng? L.latLng(lastLatLng): null;
     lastLatLng = here;
     trackPoints.push(here);
 
     me.setLatLng(here);
-    updateMapCenter(); // マップの中心更新を呼び出す
+    updateMapCenter();
 
     const latlngs = trackLine.getLatLngs();
     latlngs.push(here); trackLine.setLatLngs(latlngs);
@@ -526,7 +533,7 @@
     tracking=true; start.disabled=true; stop.disabled=true; fabStop.style.display='grid'; document.getElementById('recBadge').style.display='flex';
     enqueueSpeech(['評価を開始します']);
 
-    distanceTravelled=0; distanceTravelledSinceSpeak=0;
+    distanceTravelled=0;
     trackPoints.length = 0;
     trackLine.setLatLngs([]); checkpointLayer.clearLayers();
     notified.clear();
