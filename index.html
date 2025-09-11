@@ -389,9 +389,10 @@
     clearDataLayers(); trackLayer.clearLayers(); checkpointLayer.clearLayers();
   }
 
-  /* ==== 自車位置（赤） ==== */
+  /* ==== 自車位置・走行ルート ==== */
   const me=L.circleMarker([35.681,139.767],{radius:7,fillColor:'#ef4444',fillOpacity:1, stroke: false}).addTo(map);
-  const trackLine=L.polyline([], {color:'#0ea5e9', weight:6, opacity:.9}).addTo(trackLayer);
+  const trackLineCasing = L.polyline([], {color: '#15803d', weight: 9, opacity: 0.8}).addTo(trackLayer);
+  const trackLine = L.polyline([], {color: '#22c55e', weight: 5, opacity: 0.95}).addTo(trackLayer);
 
   /* ==== データセット管理（複数ファイル切替） ==== */
   const datasetMap=new Map();
@@ -451,8 +452,12 @@
       (p.looksRoute? routeMarkerLayer: pointLayer).addLayer(m);
     }
     for(const ring of ds.routes){
-      // ▼▼▼ ルートのスタイルをここで変更 ▼▼▼
-      const poly=L.polyline(ring,{color:'#3b82f6',weight:5,opacity:.9});
+      // 外側の縁取り線（太く、濃い色）
+      const casing = L.polyline(ring, {color: '#854d0e', weight: 8, opacity: 0.85});
+      // 内側のメイン線（細く、明るい色）
+      const poly = L.polyline(ring, {color: '#f59e0b', weight: 5, opacity: 1});
+      
+      routeLineLayer.addLayer(casing);
       routeLineLayer.addLayer(poly);
     }
     const bounds = L.latLngBounds([]);
@@ -546,7 +551,9 @@
     liveAltitude.textContent = altitude !== null ? `${altitude.toFixed(1)} m` : '-- m';
     liveAccuracy.textContent = accuracy !== null ? `${accuracy.toFixed(1)} m` : '-- m';
     const latlngs = trackLine.getLatLngs();
-    latlngs.push(here); trackLine.setLatLngs(latlngs);
+    latlngs.push(here); 
+    trackLine.setLatLngs(latlngs);
+    trackLineCasing.setLatLngs(latlngs);
     if(orientationMode==='course' && prevLatLng){
       const bearing = bearingBetween(prevLatLng, here);
       rotateMap(-bearing);
@@ -565,7 +572,9 @@
     liveInfoPanel.style.display = 'block';
     distanceTravelled=0; distanceTravelledSinceSpeak=0;
     trackPoints.length = 0;
-    trackLine.setLatLngs([]); checkpointLayer.clearLayers();
+    trackLine.setLatLngs([]); 
+    trackLineCasing.setLatLngs([]);
+    checkpointLayer.clearLayers();
     notified.clear();
     let sweep=0; clearInterval(startupSweepTimer);
     startupSweepTimer=setInterval(()=>{ if(!tracking){clearInterval(startupSweepTimer);return;}
@@ -619,22 +628,24 @@
   });
 
   /* ==== GPX 保存 ==== */
+  function clearTrackAndCps() {
+    trackPoints.length = 0;
+    cps.length = 0;
+    trackLine.setLatLngs([]);
+    trackLineCasing.setLatLngs([]);
+    checkpointLayer.clearLayers();
+  }
+
   saveYesBtn.addEventListener('click', () => {
     const filename = filenameInput.value || 'track';
     saveGPX(trackPoints, cps, filename);
     saveModal.style.display = 'none';
-    trackPoints.length = 0;
-    cps.length = 0;
-    trackLine.setLatLngs([]);
-    checkpointLayer.clearLayers();
+    clearTrackAndCps();
   });
 
   saveNoBtn.addEventListener('click', () => {
     saveModal.style.display = 'none';
-    trackPoints.length = 0;
-    cps.length = 0;
-    trackLine.setLatLngs([]);
-    checkpointLayer.clearLayers();
+    clearTrackAndCps();
   });
 
   function saveGPX(latlngs, cps, filename){
@@ -645,7 +656,7 @@
   function buildGPX(latlngs, cps){
     const trkpts = latlngs.map(ll=>`<trkpt lat="${ll.lat}" lon="${ll.lng}"></trkpt>`).join('');
     const wpts   = cps.map(c=>`<wpt lat="${c.latlng[0]}" lon="${c.latlng[1]}"><name>${escapeXML(c.memo||'CP')}</name></wpt>`).join('');
-    return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="DriveEval" xmlns="http://www.topografix.com/GPX/1/1"><trk><name>drive</name><trkseg>${trkpts}</trkseg></trk>${wpts}</gpx>`;
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="DriveEval" xmlns="http://www.topografix.com/GPX/1.1"><trk><name>drive</name><trkseg>${trkpts}</trkseg></trk>${wpts}</gpx>`;
   }
 
   function downloadText(text, name, mime){
