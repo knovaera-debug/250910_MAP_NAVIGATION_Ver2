@@ -70,7 +70,6 @@
   }
   #save-yes { background-color: #38a169; }
   #save-no { background-color: #e53e3e; }
-  /* Choice B: Live Info Panel Style */
   #live-info {
     border-top: 1px solid #e2e8f0;
     margin-top: 10px;
@@ -161,7 +160,7 @@
     <p>高度: <span id="live-altitude">-- m</span></p>
     <p>GPS精度: <span id="live-accuracy">-- m</span></p>
   </div>
-  </div>
+</div>
 
 <button id="toggle-panel">☰</button>
 
@@ -230,7 +229,6 @@
   const lockPortraitBtn = document.getElementById('lockPortrait');
   const lockLandscapeBtn = document.getElementById('lockLandscape');
   const unlockOrientationBtn = document.getElementById('unlockOrientation');
-  // Choice B: Live Info Elements
   const liveInfoPanel = document.getElementById('live-info');
   const liveSpeed = document.getElementById('live-speed');
   const liveAltitude = document.getElementById('live-altitude');
@@ -256,7 +254,6 @@
     updateMapCenter();
   });
   
-  // 画面の向きが変わったときにも中心を再調整
   window.addEventListener('orientationchange', updateMapCenter);
   window.addEventListener('resize', updateMapCenter);
 
@@ -316,26 +313,19 @@
   function updateMapCenter() {
     setTimeout(() => {
         if (!lastLatLng || !keepCentered.checked) return;
-
         map.invalidateSize();
-
         const mapSize = map.getSize();
         const panelWidth = panel.offsetWidth;
         const panelVisible = !panel.classList.contains('panel-hidden');
-
         let targetX = mapSize.x / 2;
         let targetY = mapSize.y / 2;
-
         if (panelVisible) {
             targetX = (mapSize.x / 2) + (panelWidth / 2);
         }
-        
         map.panTo(lastLatLng, { animate: false });
-        
         const mePoint = map.latLngToContainerPoint(lastLatLng);
         const offsetX = targetX - mePoint.x;
         const offsetY = targetY - mePoint.y;
-
         map.panBy(L.point(offsetX, offsetY), { animate: false });
     }, 100);
   }
@@ -348,13 +338,10 @@
     if(ttsUnlocked)return;
     ttsUnlocked=true;
     speechSynthesis.cancel();
-    
     const voices = speechSynthesis.getVoices();
     voiceSelect.innerHTML = ''; 
-    
     let preferredVoice = null;
     const jaVoices = voices.filter(v => /ja-JP/i.test(v.lang));
-
     preferredVoice = jaVoices.find(v => /Kyoko|O-ren|Ayumi|Haruka|Female|女性/i.test(v.name));
     if (!preferredVoice && jaVoices.length > 0) {
       preferredVoice = jaVoices[0];
@@ -363,7 +350,6 @@
       preferredVoice = voices[0];
     }
     jpVoice = preferredVoice;
-
     voices.forEach(voice => {
       const option = document.createElement('option');
       option.textContent = `${voice.name} (${voice.lang})`;
@@ -373,7 +359,6 @@
       }
       voiceSelect.appendChild(option);
     });
-    
     voiceSelect.addEventListener('change', () => {
       const selectedVoiceName = voiceSelect.value;
       jpVoice = voices.find(v => v.name === selectedVoiceName);
@@ -466,7 +451,8 @@
       (p.looksRoute? routeMarkerLayer: pointLayer).addLayer(m);
     }
     for(const ring of ds.routes){
-      const poly=L.polyline(ring,{color:'#9ca3af',weight:3,opacity:.8});
+      // ▼▼▼ ルートのスタイルをここで変更 ▼▼▼
+      const poly=L.polyline(ring,{color:'#3b82f6',weight:5,opacity:.9});
       routeLineLayer.addLayer(poly);
     }
     const bounds = L.latLngBounds([]);
@@ -544,7 +530,6 @@
     const here = L.latLng(pos.coords.latitude, pos.coords.longitude);
     lastFixTime = Date.now();
     weakGpsWarned=false;
-
     if(lastLatLng){
       const moved = here.distanceTo(L.latLng(lastLatLng));
       distanceTravelled += moved; distanceTravelledSinceSpeak += moved;
@@ -552,27 +537,21 @@
     prevLatLng = lastLatLng? L.latLng(lastLatLng): null;
     lastLatLng = here;
     trackPoints.push(here);
-
     me.setLatLng(here);
     updateMapCenter();
-
-    // Choice B: Update live info
-    const speed = pos.coords.speed; // m/s
-    const altitude = pos.coords.altitude; // meters
-    const accuracy = pos.coords.accuracy; // meters
+    const speed = pos.coords.speed;
+    const altitude = pos.coords.altitude;
+    const accuracy = pos.coords.accuracy;
     liveSpeed.textContent = speed !== null ? `${(speed * 3.6).toFixed(1)} km/h` : '-- km/h';
     liveAltitude.textContent = altitude !== null ? `${altitude.toFixed(1)} m` : '-- m';
     liveAccuracy.textContent = accuracy !== null ? `${accuracy.toFixed(1)} m` : '-- m';
-
     const latlngs = trackLine.getLatLngs();
     latlngs.push(here); trackLine.setLatLngs(latlngs);
-
     if(orientationMode==='course' && prevLatLng){
       const bearing = bearingBetween(prevLatLng, here);
       rotateMap(-bearing);
       $compassArrow.style.transform=`translateY(4px) rotate(${bearing}deg)`;
     }
-
     stat.textContent = `距離 ${(distanceTravelled/1000).toFixed(2)} km`;
     checkNearAndSpeak(here);
   }
@@ -583,29 +562,22 @@
     unlockTTS();
     tracking=true; start.disabled=true; stop.disabled=false; fabStop.style.display='grid'; document.getElementById('recBadge').style.display='flex';
     enqueueSpeech(['評価を開始します']);
-    
-    // Choice B: Show live info panel
     liveInfoPanel.style.display = 'block';
-
     distanceTravelled=0; distanceTravelledSinceSpeak=0;
     trackPoints.length = 0;
     trackLine.setLatLngs([]); checkpointLayer.clearLayers();
     notified.clear();
-
     let sweep=0; clearInterval(startupSweepTimer);
     startupSweepTimer=setInterval(()=>{ if(!tracking){clearInterval(startupSweepTimer);return;}
       if(lastLatLng) checkNearAndSpeak(L.latLng(lastLatLng));
       if(++sweep>=10) clearInterval(startupSweepTimer);
     },2000);
-
     watchId=navigator.geolocation.watchPosition(onPosition,onPositionError,{enableHighAccuracy:true,maximumAge:1000,timeout:10000});
-
     gpsWeakTimer = setInterval(()=>{
       if(!tracking) return;
       const since = Date.now()-lastFixTime;
       if(since>15000 && !weakGpsWarned){ weakGpsWarned=true; toast('GPS信号が弱いです'); enqueueSpeech(['GPS信号が弱いです']); }
     },3000);
-
     cpBtn.disabled=false;
   }
 
@@ -615,19 +587,14 @@
     navigator.geolocation.clearWatch?.(watchId); watchId=null;
     clearInterval(startupSweepTimer); clearInterval(gpsWeakTimer);
     start.disabled=false; stop.disabled=true; fabStop.style.display='none'; document.getElementById('recBadge').style.display='none';
-    
-    // Choice B: Hide live info panel
     liveInfoPanel.style.display = 'none';
-
     rotateMap(0); $compass.style.display='none';
     unlockTTS(); enqueueSpeech(['評価を終了します']);
     cpBtn.disabled=true;
-
     if (trackPoints.length === 0) {
         toast('走行記録がありません', 1500);
         return;
     }
-
     saveModal.style.display = 'flex';
     const now = new Date();
     const defaultFilename = `track_${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}_${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}${now.getSeconds().toString().padStart(2, '0')}`;
@@ -685,13 +652,11 @@
     try{
       const blob = new Blob([text], {type: mime});
       const file = new File([blob], name, {type: mime});
-
       if (navigator.canShare?.({ files: [file] })) {
         navigator.share({ files: [file], title: name, text: '' })
           .catch(()=>{});
         return;
       }
-
       const url = URL.createObjectURL(blob);
       const opened = window.open(url, '_blank');
       if (!opened) {
