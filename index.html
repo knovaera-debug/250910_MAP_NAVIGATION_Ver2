@@ -208,7 +208,7 @@
     } else {
       togglePanelBtn.style.display = 'none';
     }
-    updateMapCenter();
+    updateMapCenter(); // パネル表示切り替え時に中心を再計算
   });
 
   panel.addEventListener('click', (e) => {
@@ -217,9 +217,10 @@
     }
     panel.classList.add('panel-hidden');
     togglePanelBtn.style.display = 'block';
-    updateMapCenter();
+    updateMapCenter(); // パネル表示切り替え時に中心を再計算
   });
   
+  // 画面の向きが変わったときにも中心を再調整
   window.addEventListener('orientationchange', updateMapCenter);
   window.addEventListener('resize', updateMapCenter);
 
@@ -275,24 +276,31 @@
     pane.style.transform = `rotate(${currentBearing}deg)`;
     updateMapCenter();
   }
-  
+
   function updateMapCenter() {
     if (!lastLatLng || !keepCentered.checked) return;
-  
+
     const mapSize = map.getSize();
     const panelWidth = panel.offsetWidth;
     const panelVisible = !panel.classList.contains('panel-hidden');
-  
-    const targetX = panelVisible ? (mapSize.x + panelWidth) / 2 : mapSize.x / 2;
-    const targetY = mapSize.y / 2;
-    const targetPoint = L.point(targetX, targetY);
-  
-    const currentVehiclePoint = map.latLngToContainerPoint(lastLatLng);
-    const panOffset = targetPoint.subtract(currentVehiclePoint);
-  
-    if (panOffset.x !== 0 || panOffset.y !== 0) {
-      map.panBy(panOffset, { animate: false });
+
+    // 基準となる中心座標を決定
+    let targetX = mapSize.x / 2;
+    let targetY = mapSize.y / 2;
+
+    if (panelVisible) {
+      targetX = mapSize.x / 2 + panelWidth / 2;
     }
+
+    // 自車位置を新しい中心にセット
+    map.panTo(lastLatLng, { animate: false });
+    
+    // 自車が真ん中にある状態で、地図全体を目的の基準座標へオフセット
+    const mePoint = map.latLngToContainerPoint(lastLatLng);
+    const offsetX = targetX - mePoint.x;
+    const offsetY = targetY - mePoint.y;
+
+    map.panBy(L.point(offsetX, offsetY), { animate: false });
   }
 
   /* ==== TTS ==== */
@@ -353,10 +361,9 @@
     clearDataLayers(); trackLayer.clearLayers(); checkpointLayer.clearLayers();
   }
 
-  /* ==== 自車位置と精度サークル ==== */
-  const me=L.circleMarker([35.681,139.767],{radius:7,fillColor:'#ef4444',color:'#ffffff',weight:2,fillOpacity:1}).addTo(map);
-  const accuracyCircle = L.circle([35.681, 139.767], {radius: 0, color: '#0ea5e9', fillColor: '#0ea5e9', fillOpacity: 0.15, stroke: false}).addTo(map);
-  const trackLine=L.polyline([], {color:'#0ea5e9', weight:6, opacity:.9}).addTo(trackLayer);
+  /* ==== 自車位置（赤） ==== */
+  const me=L.circleMarker([35.681,139.767],{radius:7,fillColor:'#ef4444',fillOpacity:1, stroke: false}).addTo(map); // 赤の塗りつぶし、線なし
+  const trackLine=L.polyline([], {color:'#0ea5e9', weight:6, opacity:.9}).addTo(trackLayer); // 走行ルートを青色、太さ6に
 
   /* ==== データセット管理（複数ファイル切替） ==== */
   const datasetMap=new Map();
@@ -416,7 +423,7 @@
       (p.looksRoute? routeMarkerLayer: pointLayer).addLayer(m);
     }
     for(const ring of ds.routes){
-      const poly=L.polyline(ring,{color:'#f59e0b',weight:4,opacity:.9});
+      const poly=L.polyline(ring,{color:'#9ca3af',weight:3,opacity:.8});
       routeLineLayer.addLayer(poly);
     }
     const bounds = L.latLngBounds([]);
@@ -433,6 +440,7 @@
     fname.textContent = ds.name;
     renderDataset(ds);
     notified.clear();
+    distanceTravelledSinceSpeak = 0;
   }
 
   fileInput.addEventListener('change', async (e)=>{
@@ -457,6 +465,7 @@
   });
 
   /* ==== 近接通知 ==== */
+  const RENOTIFY_EVERY_M = 300;
   let notified = new Map();
   function collectNearTexts(here){
     const ds = datasetMap.get(currentKey);
@@ -464,25 +473,25 @@
     const res=[];
     ds.points.forEach((p, idx)=>{
       if(p.looksRoute) return;
-      const d = here.distanceTo(p.latlng);
-      if(d <= notifyRadius && !notified.has(idx)){
-        notified.set(idx, true);
-        res.push(`${p.name||'ポイント'}。${(p.desc||'').replace(/\s+/g,' ')}`);
+      const d=here.distanceTo(p.latlng);
+      if(d <= notifyRadius){
+        const n=notified.get(idx) || {lastSpokeAtDist:-Infinity};
+        if(!isFinite(n.lastSpokeAtDist) || (distanceTravelled - n.lastSpokeAtDist)>=RENOTIFY_EVERY_M){
+          notified.set(idx, {lastSpokeAtDist:distanceTravelled});
+          res.push(`${p.name||'ポイント'}。${(p.desc||'').replace(/\s+/g,' ')}`);
+        }
       }
     });
     return res;
   }
-  
   function checkNearAndSpeak(here){
     const texts = collectNearTexts(here);
-    if(texts.length) { 
-      enqueueSpeech(texts);
-    }
+    if(texts.length) { enqueueSpeech(texts); distanceTravelledSinceSpeak = 0; }
   }
 
   /* ==== 追跡 ==== */
   let tracking=false, watchId=null; let lastLatLng=null, prevLatLng=null; let startupSweepTimer=null;
-  let distanceTravelled=0;
+  let distanceTravelled=0; let distanceTravelledSinceSpeak=0;
   let lastFixTime=0; let weakGpsWarned=false;
   let gpsWeakTimer=null;
   const trackPoints = [];
@@ -490,29 +499,19 @@
 
   function onPosition(pos){
     const here = L.latLng(pos.coords.latitude, pos.coords.longitude);
-    const accuracy = pos.coords.accuracy;
     lastFixTime = Date.now();
     weakGpsWarned=false;
 
-    me.setLatLng(here);
-    accuracyCircle.setLatLng(here);
-    accuracyCircle.setRadius(accuracy);
-
-    if (accuracy > 50) {
-      me.setStyle({fillColor: '#f59e0b'});
-    } else {
-      me.setStyle({fillColor: '#ef4444'});
-    }
-
     if(lastLatLng){
       const moved = here.distanceTo(L.latLng(lastLatLng));
-      distanceTravelled += moved;
+      distanceTravelled += moved; distanceTravelledSinceSpeak += moved;
     }
     prevLatLng = lastLatLng? L.latLng(lastLatLng): null;
     lastLatLng = here;
     trackPoints.push(here);
 
-    updateMapCenter();
+    me.setLatLng(here);
+    updateMapCenter(); // マップの中心更新を呼び出す
 
     const latlngs = trackLine.getLatLngs();
     latlngs.push(here); trackLine.setLatLngs(latlngs);
@@ -523,7 +522,7 @@
       $compassArrow.style.transform=`translateY(4px) rotate(${bearing}deg)`;
     }
 
-    stat.textContent = `距離: ${(distanceTravelled/1000).toFixed(2)} km / 精度: ${Math.round(accuracy)} m`;
+    stat.textContent = `距離 ${(distanceTravelled/1000).toFixed(2)} km`;
     checkNearAndSpeak(here);
   }
   function onPositionError(err){ toast('位置情報を取得できません'); }
@@ -534,13 +533,10 @@
     tracking=true; start.disabled=true; stop.disabled=true; fabStop.style.display='grid'; document.getElementById('recBadge').style.display='flex';
     enqueueSpeech(['評価を開始します']);
 
-    distanceTravelled=0;
+    distanceTravelled=0; distanceTravelledSinceSpeak=0;
     trackPoints.length = 0;
     trackLine.setLatLngs([]); checkpointLayer.clearLayers();
     notified.clear();
-    // ===== 修正点: 追跡開始時に前回の位置情報を確実にリセット =====
-    lastLatLng = null;
-    prevLatLng = null;
 
     let sweep=0; clearInterval(startupSweepTimer);
     startupSweepTimer=setInterval(()=>{ if(!tracking){clearInterval(startupSweepTimer);return;}
