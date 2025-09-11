@@ -211,12 +211,18 @@
     updateMapCenter(); // パネル表示切り替え時に中心を再計算
   });
 
-  // パネルのコンテンツをクリックして非表示にする
-  panel.addEventListener('click', () => {
+  panel.addEventListener('click', (e) => {
+    if (e.target.tagName.toLowerCase() === 'button') {
+      return;
+    }
     panel.classList.add('panel-hidden');
     togglePanelBtn.style.display = 'block';
     updateMapCenter(); // パネル表示切り替え時に中心を再計算
   });
+  
+  // 画面の向きが変わったときにも中心を再調整
+  window.addEventListener('orientationchange', updateMapCenter);
+  window.addEventListener('resize', updateMapCenter);
 
   /* ==== 画面オフ防止 ==== */
   let wakeLock=null; const wake=document.getElementById('wake');
@@ -268,39 +274,33 @@
     const pane = map.getPanes().mapPane;
     currentBearing = bearingDeg || 0;
     pane.style.transform = `rotate(${currentBearing}deg)`;
-    if(lastLatLng) {
-      updateMapCenter();
-    }
+    updateMapCenter();
   }
 
   function updateMapCenter() {
-    if (!lastLatLng) return;
+    if (!lastLatLng || !keepCentered.checked) return;
 
-    if (keepCentered.checked) {
-      const mapSize = map.getSize();
-      const panelWidth = panel.offsetWidth;
-      const panelVisible = !panel.classList.contains('panel-hidden');
+    const mapSize = map.getSize();
+    const panelWidth = panel.offsetWidth;
+    const panelVisible = !panel.classList.contains('panel-hidden');
 
-      // 画面の真ん中を基準とするピクセル座標
-      let targetX = mapSize.x / 2;
-      let targetY = mapSize.y / 2;
+    // 基準となる中心座標を決定
+    let targetX = mapSize.x / 2;
+    let targetY = mapSize.y / 2;
 
-      // パネルが表示されている場合、自車を画面の「見えている部分」の中心に移動させる
-      if (panelVisible) {
-        // パネルが左側にあるので、X座標の真ん中を右にずらす
-        targetX = mapSize.x / 2 + (panelWidth / 2);
-      }
-
-      // 現在の自車のピクセル座標を取得
-      const mePoint = map.latLngToContainerPoint(lastLatLng);
-      
-      // 目標のピクセル座標と現在の自車位置のピクセル座標の差を計算
-      const panX = targetX - mePoint.x;
-      const panY = targetY - mePoint.y;
-
-      // その差分だけマップをパンする
-      map.panBy(L.point(panX, panY), { animate: false });
+    if (panelVisible) {
+      targetX = mapSize.x / 2 + panelWidth / 2;
     }
+
+    // 自車位置を新しい中心にセット
+    map.panTo(lastLatLng, { animate: false });
+    
+    // 自車が真ん中にある状態で、地図全体を目的の基準座標へオフセット
+    const mePoint = map.latLngToContainerPoint(lastLatLng);
+    const offsetX = targetX - mePoint.x;
+    const offsetY = targetY - mePoint.y;
+
+    map.panBy(L.point(offsetX, offsetY), { animate: false });
   }
 
   /* ==== TTS ==== */
