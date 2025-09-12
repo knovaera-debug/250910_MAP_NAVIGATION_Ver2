@@ -26,7 +26,7 @@
   button{padding:10px 14px; min-height:40px; border-radius:12px; cursor:pointer; border:1px solid #ddd; background:#fff;}
   select, input[type=range]{height:40px;border-radius:10px;border:1px solid #ddd;padding:0 8px}
   #start{background:#16a34a;color:#fff;border-color:#16a34a}
-  #stop{background:#ef4444;color:#fff;border-color:#ef4444}
+  /* #stop{background:#ef4444;color:#fff;border-color:#ef4444} */ /* 削除対象のためコメントアウト */
   #recenter{background:#0ea5e9;color:#fff;border-color:#0ea5e9}
   #cp{background:#f59e0b;color:#fff;border-color:#f59e0b}
   #saveGpx{background:#6366f1;color:#fff;border-color:#6366f1}
@@ -111,7 +111,6 @@
 
   <div class="row">
     <button id="start">追跡開始</button>
-    <button id="stop" disabled>追跡終了</button>
     <button id="recenter">現在地へ</button>
     <button id="cp" disabled>チェックポイント</button>
     <span id="counts" class="counts"></span>
@@ -200,12 +199,16 @@
 
   /* ==== マップ ==== */
   const map=L.map('map',{zoomControl:false});
+  // ▼▼▼ 走行軌跡用のpaneを追加し、z-indexを設定 ▼▼▼
+  map.createPane('trackPane');
+  map.getPane('trackPane').style.zIndex = 450;
+  // ▲▲▲ 走行軌跡用のpaneを追加し、z-indexを設定 ▲▲▲
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'&copy; OpenStreetMap'}).addTo(map);
   map.setView([35.681,139.767], 16);
 
   /* ==== UI 要素 ==== */
   const start=document.getElementById('start');
-  const stop=document.getElementById('stop');
+  // const stop=document.getElementById('stop'); // 削除
   const fabStop=document.getElementById('fabStop');
   const recenter=document.getElementById('recenter');
   const keepCentered=document.getElementById('keepCentered');
@@ -379,7 +382,7 @@
   const pointLayer=L.layerGroup().addTo(map);
   const routeMarkerLayer=L.layerGroup().addTo(map);
   const routeLineLayer=L.layerGroup().addTo(map);
-  const trackLayer=L.layerGroup().addTo(map);
+  const trackLayer=L.layerGroup({pane: 'trackPane'}).addTo(map);
   const checkpointLayer=L.layerGroup().addTo(map);
 
   function clearDataLayers(){
@@ -390,8 +393,6 @@
   }
 
   /* ==== 自車位置・走行ルート ==== */
-  // ▼▼▼ 自車位置マーカーのスタイルを修正 ▼▼▼
-  // stroke: false で枠線なし、fillColorで赤の塗りつぶしを明確に指定
   const me = L.circleMarker([35.681,139.767], {
     radius: 7,
     stroke: false,
@@ -400,8 +401,10 @@
     fillOpacity: 1
   }).addTo(map);
   
-  const trackLineCasing = L.polyline([], {color: '#15803d', weight: 9, opacity: 0.8}).addTo(trackLayer);
-  const trackLine = L.polyline([], {color: '#22c55e', weight: 5, opacity: 0.95}).addTo(trackLayer);
+  // ▼▼▼ 走行軌跡の線の太さを修正 ▼▼▼
+  const trackLineCasing = L.polyline([], {color: '#15803d', weight: 7, opacity: 0.8}).addTo(trackLayer);
+  const trackLine = L.polyline([], {color: '#22c55e', weight: 3, opacity: 0.95}).addTo(trackLayer);
+  // ▲▲▲ 走行軌跡の線の太さを修正 ▲▲▲
 
   /* ==== データセット管理（複数ファイル切替） ==== */
   const datasetMap=new Map();
@@ -573,7 +576,11 @@
   function startTracking(){
     if(!currentKey){ toast('KML/KMZを読み込んでください'); return; }
     unlockTTS();
-    tracking=true; start.disabled=true; stop.disabled=false; fabStop.style.display='grid'; document.getElementById('recBadge').style.display='flex';
+    tracking=true; 
+    start.disabled=true; 
+    // stop.disabled=false; // 削除
+    fabStop.style.display='grid'; 
+    document.getElementById('recBadge').style.display='flex';
     enqueueSpeech(['評価を開始します']);
     liveInfoPanel.style.display = 'block';
     distanceTravelled=0; distanceTravelledSinceSpeak=0;
@@ -601,7 +608,10 @@
     tracking=false;
     navigator.geolocation.clearWatch?.(watchId); watchId=null;
     clearInterval(startupSweepTimer); clearInterval(gpsWeakTimer);
-    start.disabled=false; stop.disabled=true; fabStop.style.display='none'; document.getElementById('recBadge').style.display='none';
+    start.disabled=false; 
+    // stop.disabled=true; // 削除
+    fabStop.style.display='none'; 
+    document.getElementById('recBadge').style.display='none';
     liveInfoPanel.style.display = 'none';
     rotateMap(0); $compass.style.display='none';
     unlockTTS(); enqueueSpeech(['評価を終了します']);
@@ -616,7 +626,7 @@
     filenameInput.value = defaultFilename;
   }
   start.addEventListener('click', startTracking);
-  stop.addEventListener('click', stopTracking);
+  // stop.addEventListener('click', stopTracking); // 削除
   fabStop.addEventListener('touchstart', (e)=>{ e.preventDefault(); stopTracking(); }, {passive:false});
   fabStop.addEventListener('click', stopTracking);
 
