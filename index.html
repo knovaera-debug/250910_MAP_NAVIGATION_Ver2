@@ -200,15 +200,49 @@
     }
 
     async function handleKMZ(file) {
-      const buf = await file.arrayBuffer();
-      const zip = await JSZip.loadAsync(buf);
-      // 最初に見つかった KML を使う
-      const kmlFile = Object.keys(zip.files).find(n => n.toLowerCase().endsWith('.kml'));
-      if (!kmlFile) throw new Error('KMZ 内に KML が見つかりません');
-      const kmlText = await zip.file(kmlFile).async('string');
-      const xml = new DOMParser().parseFromString(kmlText, 'text/xml');
-      const gj = togeojson.kml(xml);
-      renderGeoJSONAsRoute(gj, file.name);
+      // KMZ を解凍し、含まれるすべての .kml を統合して描画する（styles 有効）
+      let zip;
+      try {
+        const buf = await file.arrayBuffer();
+        zip = await JSZip.loadAsync(buf);
+      } catch (e) {
+        throw new Error('KMZ を解凍できません（壊れているか、KMZ ではない可能性）');
+      }
+
+      const entries = Object.values(zip.files).filter(f => !f.dir && f.name.toLowerCase().endsWith('.kml'));
+      if (entries.length === 0) {
+        throw new Error('KMZ 内に KML が見つかりません（doc.kml が入っているか確認）');
+      }
+
+      // すべての KML をパース → GeoJSON に変換 → マージ
+      const merged = { type: 'FeatureCollection', features: [] };
+      for (const ent of entries) {
+        const kmlText = await ent.async('string');
+        const xml = new DOMParser().parseFromString(kmlText, 'text/xml');
+        // XML パースエラーチェック
+        const pe = xml.getElementsByTagName('parsererror')[0];
+        if (pe) {
+          console.warn('KML の XML パースに失敗: ', ent.name, pe.textContent);
+          continue;
+        }
+        // スタイル情報を活かして GeoJSON 化
+        let gj;
+        try {
+          gj = togeojson.kml(xml, { styles: true });
+        } catch (e) {
+          console.warn('toGeoJSON 変換に失敗: ', ent.name, e);
+          continue;
+        }
+        if (gj && Array.isArray(gj.features)) {
+          merged.features.push(...gj.features);
+        }
+      }
+
+      if (!merged.features.length) {
+        throw new Error('KML を GeoJSON に変換できません（gx:Track 非対応の古い togeojson でないか確認）');
+      }
+
+      renderGeoJSONAsRoute(merged, file.name);
     }
 
     function renderGeoJSONAsRoute(geojson, label = 'route') {
