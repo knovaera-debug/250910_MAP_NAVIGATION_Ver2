@@ -94,7 +94,7 @@ document.getElementById('file').addEventListener('change', async e => {
     const kml = new DOMParser().parseFromString(text,"text/xml");
     const geojson = toGeoJSON.kml(kml);
 
-    // Placemark のうち Point だけ抽出
+    // === Point のみ抽出し、name が無ければ補完 ===
     const points = geojson.features.filter(f => f.geometry?.type === "Point");
     points.forEach((p,i)=>{
       if(!p.properties.name) p.properties.name = `チェックポイント${i+1}`;
@@ -137,21 +137,32 @@ document.getElementById("start").addEventListener("click",()=>{
     if(document.getElementById("keepCentered").checked){
       map.setView([lat,lon], map.getZoom());
     }
-    checkProximity([lon,lat]);
+    // 開始直後にも範囲内チェック
+    checkProximity([lon,lat], true);
   }, err=>console.error(err),{enableHighAccuracy:true});
 });
 
 // === 範囲チェック ===
-function checkProximity(lonlat){
+function checkProximity(lonlat, initial=false){
   if(!currentDataset) return;
   const [lon,lat] = lonlat;
+  let insidePoints = [];
   currentDataset.points.forEach((p,i)=>{
     const [plon,plat] = p.geometry.coordinates;
     const dist = haversine(lat,lon,plat,plon);
     if(dist<notifyRadius && !notifiedPoints.has(i)){
-      notifiedPoints.add(i);
-      speak(p.properties.name);
+      insidePoints.push({i,dist,name:p.properties.name});
     }
+  });
+  // 初期位置なら近い順に全部読み上げ
+  if(initial){
+    insidePoints.sort((a,b)=>a.dist-b.dist);
+  } else {
+    insidePoints = insidePoints.slice(0,1);
+  }
+  insidePoints.forEach(pt=>{
+    notifiedPoints.add(pt.i);
+    speak(pt.name);
   });
 }
 
