@@ -1,170 +1,498 @@
 <!doctype html>
 <html lang="ja">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>実車評価支援ツール Ver5.4</title>
-<link rel="stylesheet" href="leaflet.css" />
-<style>
-  html,body{height:100%;margin:0}
-  #map{position:fixed; inset:0; background:#f2f2f2; z-index:0;}
-  #panel{
-    position:fixed; left:10px; top:calc(10px + env(safe-area-inset-top));
-    z-index:2147483000; background:#fff; padding:10px 12px; border-radius:12px;
-    box-shadow:0 6px 24px rgba(0,0,0,.18);
-    font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans JP",sans-serif;
-    min-width:300px; max-width:min(94vw,560px);
-    transition: transform 0.3s ease-in-out;
-  }
-  .panel-hidden { transform: translateX(-110%); }
-  #panel h1{margin:0 0 8px;font-size:15px;font-weight:700}
-  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0}
-  .small{font-size:11px;color:#555}
-  button{padding:10px 14px; min-height:40px; border-radius:12px;
-    cursor:pointer; border:1px solid #ddd; background:#fff;}
-  #start{background:#16a34a;color:#fff;border-color:#16a34a}
-  #recenter{background:#0ea5e9;color:#fff;border-color:#0ea5e9}
-  #cp{background:#f59e0b;color:#fff;border-color:#f59e0b}
-  #saveGpx{background:#6366f1;color:#fff;border-color:#6366f1}
-  #fabStop{position:fixed; right:calc(12px + env(safe-area-inset-right));
-    bottom:calc(12px + env(safe-area-inset-bottom));
-    z-index:2147483200; display:none; width:84px;height:84px;border-radius:50%;
-    box-shadow:0 12px 36px rgba(0,0,0,.28);
-    border:none; background:#ef4444;color:#fff;font-size:16px;font-weight:700;}
-  #recBadge{position:fixed; right:12px; top:calc(12px + env(safe-area-inset-top));
-    z-index:2147483200; display:none; align-items:center; gap:6px;
-    background:rgba(239,68,68,.95); color:#fff; padding:6px 10px; border-radius:9999px;
-    box-shadow:0 6px 24px rgba(0,0,0,.18); font-size:12px}
-  .dot{width:10px;height:10px;border-radius:50%;background:#fff;animation:blink 1s infinite}
-  @keyframes blink{0%,60%{opacity:1}61%,100%{opacity:.25}}
-  #toast{position:fixed; left:50%; bottom:calc(78px + env(safe-area-inset-bottom));
-    transform:translateX(-50%); z-index:2147483100; display:none;
-    max-width:min(92vw,560px); background:rgba(0,0,0,.85); color:#fff;
-    padding:10px 14px; border-radius:12px; box-shadow:0 6px 24px rgba(0,0,0,.35);
-    font-size:14px}
-  #fname{max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .counts{font-size:11px;color:#334155;background:#f1f5f9;border-radius:9999px;padding:2px 8px}
-</style>
+  <meta charset="utf-8" />
+  <title>実車評価支援ツール Ver5.5</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <link rel="stylesheet" href="leaflet.css" />
+  <style>
+    html,body{height:100%;margin:0}
+    #map{
+      position:fixed;
+      inset:0;
+      background:#f2f2f2;
+      z-index:0;
+    }
+    #panel{
+      position:fixed;
+      left:10px;
+      top:calc(10px + env(safe-area-inset-top));
+      z-index:2147483000;
+      background:#fff;
+      padding:10px 12px;
+      border-radius:12px;
+      box-shadow:0 6px 24px rgba(0,0,0,.18);
+      font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans JP",sans-serif;
+      min-width:310px;
+      max-width:min(94vw,580px);
+      transition:transform .25s ease-in-out;
+    }
+    #panel h1{margin:0 0 8px;font-size:15px;font-weight:700}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0}
+    .small{font-size:11px;color:#555}
+    .grow{flex:1 1 auto;min-width:140px}
+    button{
+      padding:10px 14px;
+      min-height:40px;
+      border-radius:12px;
+      cursor:pointer;
+      border:1px solid #ddd;
+      background:#fff;
+    }
+    #start{background:#16a34a;color:#fff;border-color:#16a34a}
+    #stop{background:#ef4444;color:#fff;border-color:#ef4444}
+    #recenter{background:#0ea5e9;color:#fff;border-color:#0ea5e9}
+    #cp{background:#f59e0b;color:#fff;border-color:#f59e0b}
+    #fabStop{
+      position:fixed;
+      right:calc(12px + env(safe-area-inset-right));
+      bottom:calc(12px + env(safe-area-inset-bottom));
+      z-index:2147483200;
+      display:none;
+      width:84px;
+      height:84px;
+      border-radius:50%;
+      box-shadow:0 12px 36px rgba(0,0,0,.28);
+      border:none;
+      background:#ef4444;
+      color:#fff;
+      font-size:16px;
+      font-weight:700;
+    }
+    #recBadge{
+      position:fixed;
+      right:12px;
+      top:calc(12px + env(safe-area-inset-top));
+      z-index:2147483200;
+      display:none;
+      align-items:center;
+      gap:6px;
+      background:rgba(239,68,68,.95);
+      color:#fff;
+      padding:6px 10px;
+      border-radius:9999px;
+      box-shadow:0 6px 24px rgba(0,0,0,.18);
+      font-size:12px;
+    }
+    .dot{width:10px;height:10px;border-radius:50%;background:#fff;animation:blink 1s infinite}
+    @keyframes blink{0%,60%{opacity:1}61%,100%{opacity:.25}}
+    #toast{
+      position:fixed;
+      left:50%;
+      bottom:calc(78px + env(safe-area-inset-bottom));
+      transform:translateX(-50%);
+      z-index:2147483100;
+      display:none;
+      max-width:min(92vw,560px);
+      background:rgba(0,0,0,.85);
+      color:#fff;
+      padding:10px 14px;
+      border-radius:12px;
+      box-shadow:0 6px 24px rgba(0,0,0,.35);
+      font-size:14px;
+    }
+    #fname{max-width:170px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .counts{font-size:11px;color:#334155;background:#f1f5f9;border-radius:9999px;padding:2px 8px}
+    input[type=number], select, input[type=range]{
+      height:38px;
+      border-radius:10px;
+      border:1px solid #ddd;
+      padding:0 8px;
+    }
+  </style>
 </head>
 <body>
-<div id="map"></div>
+  <div id="map"></div>
 
-<div id="panel">
-  <h1>実車評価支援ツール Ver5.4</h1>
+  <div id="panel">
+    <h1>実車評価支援ツール Ver5.5</h1>
 
-  <div class="row">
-    <input
-      type="file"
-      id="file"
-      accept=".kml,.kmz,application/vnd.google-earth.kmz,application/vnd.google-earth.kml+xml,application/zip,application/x-zip-compressed,application/octet-stream"
-      multiple
-    />
-    <select id="datasetSelect" class="grow">
-      <option value="" disabled selected>（読み込んだルート／ポイントを選択）</option>
-    </select>
-    <span id="fname" class="small"></span>
+    <!-- ファイル読み込み行 -->
+    <div class="row">
+      <input
+        type="file"
+        id="file"
+        accept=".kml,.kmz,application/vnd.google-earth.kmz,application/vnd.google-earth.kml+xml,application/zip,application/x-zip-compressed,application/octet-stream"
+        multiple
+      />
+      <select id="datasetSelect" class="grow">
+        <option value="" disabled selected>（読み込んだルート／ポイント）</option>
+      </select>
+      <span id="fname" class="small"></span>
+    </div>
+
+    <!-- 操作行 -->
+    <div class="row">
+      <button id="start">追跡開始</button>
+      <button id="recenter">現在地へ</button>
+      <button id="cp" disabled>チェックポイント</button>
+      <span id="counts" class="counts"></span>
+    </div>
+
+    <!-- 追跡オプション -->
+    <div class="row">
+      <label><input type="checkbox" id="keepCentered" checked />自車を常に中心</label>
+    </div>
+
+    <!-- 通知半径設定 -->
+    <div class="row">
+      <label for="notifyRadius">通知半径(m):</label>
+      <input type="number" id="notifyRadius" value="120" min="5" step="5" style="width:80px;" />
+      <span class="small">※スタート時もこの距離以内を案内</span>
+    </div>
   </div>
 
-  <div class="row">
-    <button id="start">追跡開始</button>
-    <button id="recenter">現在地へ</button>
-    <button id="cp" disabled>チェックポイント</button>
-    <span id="counts" class="counts"></span>
-  </div>
+  <button id="fabStop">停止</button>
+  <div id="recBadge"><div class="dot"></div>評価中</div>
+  <div id="toast"></div>
 
-  <div class="row">
-    <label><input type="checkbox" id="keepCentered" checked />自車を常に中心</label>
-    <label style="margin-left:10px">向き:</label>
-    <label><input type="radio" name="orient" value="north" checked />北を上</label>
-    <label><input type="radio" name="orient" value="course" />進行方向を上</label>
-  </div>
-</div>
+  <!-- ライブラリ -->
+  <script src="leaflet.js"></script>
+  <script src="jszip.min.js"></script>
+  <script src="togeojson.umd.js"></script>
 
-<button id="fabStop">停止</button>
-<div id="recBadge"><div class="dot"></div>評価中</div>
-<div id="toast"></div>
+  <script>
+  //========================
+  // 地図初期化
+  //========================
+  const map = L.map('map').setView([35.681, 139.767], 13);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
 
-<script src="leaflet.js"></script>
-<script src="jszip.min.js"></script>
-<script src="togeojson.umd.js"></script>
+  //========================
+  // DOM取得
+  //========================
+  const fileInput = document.getElementById('file');
+  const datasetSelect = document.getElementById('datasetSelect');
+  const startBtn = document.getElementById('start');
+  const recenterBtn = document.getElementById('recenter');
+  const keepCentered = document.getElementById('keepCentered');
+  const toastEl = document.getElementById('toast');
+  const countsEl = document.getElementById('counts');
+  const notifyRadiusInput = document.getElementById('notifyRadius');
+  const recBadge = document.getElementById('recBadge');
+  const fabStop = document.getElementById('fabStop');
 
-<script>
-const map = L.map('map').setView([35.681,139.767], 13);
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'
-}).addTo(map);
+  //========================
+  // 状態管理
+  //========================
+  let datasets = []; // 読み込んだデータ {name, layer, points:[], lines:[]}
+  let currentWatchId = null;
+  let myMarker = null;
+  let isTracking = false;
+  let selectedVoice = null;
 
-let routeLayers = [];
-const datasetSelect = document.getElementById("datasetSelect");
-const toast = document.getElementById("toast");
+  //========================
+  // ユーティリティ
+  //========================
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.style.display = 'block';
+    setTimeout(() => {
+      toastEl.style.display = 'none';
+    }, 2300);
+  }
 
-function showToast(msg){
-  toast.textContent = msg;
-  toast.style.display = "block";
-  setTimeout(()=>toast.style.display="none", 2500);
-}
+  function speak(text) {
+    if (!('speechSynthesis' in window)) {
+      console.warn('speechSynthesis not supported');
+      return;
+    }
+    const uttr = new SpeechSynthesisUtterance(text);
+    // 既存から日本語Kyokoを探す
+    if (selectedVoice) {
+      uttr.voice = selectedVoice;
+    } else {
+      const voices = window.speechSynthesis.getVoices();
+      const ja = voices.find(v => v.lang === 'ja-JP' && v.name.includes('Kyoko')) ||
+                 voices.find(v => v.lang === 'ja-JP') ||
+                 voices[0];
+      if (ja) uttr.voice = ja;
+      selectedVoice = ja;
+    }
+    uttr.rate = 1.0;
+    uttr.pitch = 0.85; // トーンをやや落とす
+    window.speechSynthesis.speak(uttr);
+  }
 
-document.getElementById("file").addEventListener("change", async (event) => {
-  const files = event.target.files;
-  for (const file of files) {
-    try {
-      const name = file.name.toLowerCase();
+  // iOSはgetVoicesが遅れることがあるため
+  if (window.speechSynthesis) {
+    window.speechSynthesis.onvoiceschanged = () => {
+      const voices = window.speechSynthesis.getVoices();
+      const ja = voices.find(v => v.lang === 'ja-JP' && v.name.includes('Kyoko')) ||
+                 voices.find(v => v.lang === 'ja-JP');
+      if (ja) selectedVoice = ja;
+    };
+  }
+
+  //========================
+  // KML文字列 → データセット化
+  //========================
+  function createDatasetFromKMLText(kmlText, filename) {
+    const parser = new DOMParser();
+    const kmlDom = parser.parseFromString(kmlText, "text/xml");
+    const geojson = toGeoJSON.kml(kmlDom);
+
+    const points = [];
+    const lines = [];
+
+    // Leafletレイヤ
+    const layer = L.geoJSON(geojson, {
+      style: {
+        color: "orange",
+        weight: 3
+      },
+      pointToLayer: (feature, latlng) => {
+        const marker = L.circleMarker(latlng, {
+          radius: 7,
+          color: "black",
+          weight: 1,
+          fillColor: "blue",
+          fillOpacity: 0.85
+        });
+        return marker;
+      },
+      onEachFeature: (feature, layer) => {
+        if (feature.geometry && feature.geometry.type === "Point") {
+          // KML側の <name> <description> を拾う
+          let name = feature.properties && (feature.properties.name || feature.properties.Name) || "ポイント";
+          let desc = feature.properties && (feature.properties.description || feature.properties.Description) || "";
+          points.push({
+            name,
+            desc,
+            latlng: layer.getLatLng(),
+            marker: layer,
+            notified: false
+          });
+          layer.bindPopup(`<b>${name}</b><br>${desc}`);
+        } else if (feature.geometry && feature.geometry.type.indexOf("LineString") >= 0) {
+          lines.push(layer);
+        }
+      }
+    }).addTo(map);
+
+    return {
+      name: filename,
+      layer,
+      points,
+      lines
+    };
+  }
+
+  //========================
+  // ファイル選択時
+  //========================
+  fileInput.addEventListener('change', async (e) => {
+    const files = e.target.files;
+    for (const file of files) {
+      const lower = file.name.toLowerCase();
       const type = file.type;
-
-      let kmlText = "";
-
-      if (name.endsWith(".kmz") || type.includes("zip") || type.includes("kmz")) {
-        const zip = await JSZip.loadAsync(file);
-        const kmlFile = Object.keys(zip.files).find(f => f.endsWith(".kml"));
-        if (!kmlFile) {
-          showToast("KMZ内にKMLファイルが見つかりません。");
+      try {
+        let kmlText = "";
+        // KMZ (ZIP)
+        if (lower.endsWith(".kmz") || type.includes("zip") || type.includes("kmz")) {
+          const zip = await JSZip.loadAsync(file);
+          const kmlFileName = Object.keys(zip.files).find(n => n.toLowerCase().endsWith(".kml"));
+          if (!kmlFileName) {
+            showToast("KMZ内にKMLが見つかりません: " + file.name);
+            continue;
+          }
+          kmlText = await zip.files[kmlFileName].async("text");
+        } else if (lower.endsWith(".kml") || type.includes("kml")) {
+          kmlText = await file.text();
+        } else {
+          showToast("対応していないファイル形式です: " + file.name);
           continue;
         }
-        kmlText = await zip.files[kmlFile].async("text");
-      } else if (name.endsWith(".kml") || type.includes("kml")) {
-        kmlText = await file.text();
-      } else {
-        showToast(`対応していないファイル形式: ${file.name}`);
-        continue;
+
+        const ds = createDatasetFromKMLText(kmlText, file.name);
+        datasets.push(ds);
+
+        const opt = document.createElement('option');
+        opt.value = datasets.length - 1;
+        opt.textContent = file.name;
+        datasetSelect.appendChild(opt);
+
+        map.fitBounds(ds.layer.getBounds());
+        countsEl.textContent = `ポイント:${ds.points.length}`;
+        showToast(file.name + " を読み込みました");
+      } catch (err) {
+        console.error(err);
+        showToast("読み込みに失敗しました: " + file.name);
       }
-
-      const parser = new DOMParser();
-      const kmlDom = parser.parseFromString(kmlText, "text/xml");
-      const geojson = toGeoJSON.kml(kmlDom);
-      const layer = L.geoJSON(geojson, {
-        style: { color: "orange", weight: 3 },
-        pointToLayer: (f, latlng) => L.circleMarker(latlng, { radius: 6, color: "black", fillColor: "blue", fillOpacity: 0.8 })
-      }).addTo(map);
-      routeLayers.push(layer);
-      map.fitBounds(layer.getBounds());
-      const option = document.createElement("option");
-      option.value = routeLayers.length - 1;
-      option.textContent = file.name;
-      datasetSelect.appendChild(option);
-      showToast(`${file.name} を読み込みました`);
-    } catch (err) {
-      console.error(err);
-      showToast(`読み込み失敗: ${file.name}`);
     }
+  });
+
+  //========================
+  // データセット選択時 → そのレイヤにズーム
+  //========================
+  datasetSelect.addEventListener('change', (e) => {
+    const idx = parseInt(e.target.value, 10);
+    const ds = datasets[idx];
+    if (ds && ds.layer) {
+      map.fitBounds(ds.layer.getBounds());
+      countsEl.textContent = `ポイント:${ds.points.length}`;
+    }
+  });
+
+  //========================
+  // 現在地へ
+  //========================
+  recenterBtn.addEventListener('click', () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(pos => {
+        const latlng = [pos.coords.latitude, pos.coords.longitude];
+        map.setView(latlng, 16);
+      }, err => {
+        showToast("現在地を取得できません");
+      });
+    } else {
+      showToast("このブラウザは位置情報に対応していません");
+    }
+  });
+
+  //========================
+  // 追跡開始
+  //========================
+  startBtn.addEventListener('click', () => {
+    if (isTracking) return;
+
+    if (!navigator.geolocation) {
+      showToast("位置情報が使えません");
+      return;
+    }
+
+    isTracking = true;
+    recBadge.style.display = "flex";
+    fabStop.style.display = "block";
+    speak("評価を開始します");
+
+    currentWatchId = navigator.geolocation.watchPosition(onPosition, onPositionError, {
+      enableHighAccuracy: true,
+      maximumAge: 2000,
+      timeout: 8000
+    });
+
+    // スタートした瞬間も今いる場所に近いポイントを案内
+    // 位置情報がまだ来ていない可能性があるので、後続の onPosition でもやる
+  });
+
+  //========================
+  // 停止
+  //========================
+  function stopTracking() {
+    if (currentWatchId !== null) {
+      navigator.geolocation.clearWatch(currentWatchId);
+      currentWatchId = null;
+    }
+    isTracking = false;
+    recBadge.style.display = "none";
+    fabStop.style.display = "none";
+    showToast("追跡を停止しました");
   }
-});
+  fabStop.addEventListener('click', stopTracking);
 
-datasetSelect.addEventListener("change", (e)=>{
-  const idx = e.target.value;
-  if(routeLayers[idx]) map.fitBounds(routeLayers[idx].getBounds());
-});
+  //========================
+  // 位置更新時の処理
+  //========================
+  function onPosition(pos) {
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+    const latlng = L.latLng(lat, lng);
 
-document.getElementById("recenter").addEventListener("click", ()=>{
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(pos=>{
-      map.setView([pos.coords.latitude,pos.coords.longitude],16);
-    }, ()=>showToast("現在地を取得できません"));
+    // 自車マーカー更新
+    if (!myMarker) {
+      myMarker = L.circleMarker(latlng, {
+        radius: 9,
+        color: "red",
+        fillColor: "red",
+        fillOpacity: 0.9
+      }).addTo(map);
+    } else {
+      myMarker.setLatLng(latlng);
+    }
+
+    if (keepCentered.checked) {
+      map.setView(latlng, map.getZoom() || 16);
+    }
+
+    // 通知チェック
+    const radius = parseFloat(notifyRadiusInput.value) || 120;
+    checkProximityAndNotify(latlng, radius);
   }
-});
 
-if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./sw.js');
-}
-</script>
+  function onPositionError(err) {
+    console.warn(err);
+    showToast("位置情報を取得中です…");
+  }
+
+  //========================
+  // 近接通知ロジック
+  //========================
+  function checkProximityAndNotify(currentLatLng, radiusMeters) {
+    // まず、すべてのデータセットの未通知ポイントを拾う
+    const candidates = [];
+    datasets.forEach((ds, dsIndex) => {
+      ds.points.forEach((pt, ptIndex) => {
+        if (pt.notified) return;
+        const dist = currentLatLng.distanceTo(pt.latlng); // m
+        if (dist <= radiusMeters) {
+          candidates.push({
+            dsIndex,
+            ptIndex,
+            dist,
+            pt
+          });
+        }
+      });
+    });
+
+    if (candidates.length === 0) return;
+
+    // 距離が近い順に並べて、順番に案内する
+    candidates.sort((a, b) => a.dist - b.dist);
+
+    candidates.forEach(c => {
+      notifyPoint(c.dsIndex, c.ptIndex);
+    });
+  }
+
+  //========================
+  // ポイント通知
+  //========================
+  function notifyPoint(dsIndex, ptIndex) {
+    const ds = datasets[dsIndex];
+    if (!ds) return;
+    const pt = ds.points[ptIndex];
+    if (!pt || pt.notified) return;
+
+    // 音声でタイトル＋メモ
+    const msg = pt.desc
+      ? `${pt.name}。${pt.desc}`
+      : `${pt.name}。評価を開始します。`;
+    speak(msg);
+
+    // マーカー色変更（青→緑）
+    if (pt.marker && pt.marker.setStyle) {
+      pt.marker.setStyle({
+        fillColor: "green",
+        color: "black",
+        fillOpacity: 0.9
+      });
+    }
+
+    pt.notified = true;
+  }
+
+  //========================
+  // Service Worker
+  //========================
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js')
+      .catch(e => console.warn('SW registration failed', e));
+  }
+  </script>
 </body>
 </html>
