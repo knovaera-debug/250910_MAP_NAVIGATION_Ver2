@@ -27,6 +27,15 @@
       max-width:min(94vw,580px);
       transition:transform .25s ease-in-out;
     }
+    #menuContent[hidden]{display:none}
+    #panel{box-sizing:border-box;min-width:0;width:min(580px, calc(100vw - 20px));max-height:calc(100dvh - 24px - env(safe-area-inset-top));overflow-y:auto}
+    .panelHeader{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+    #menuToggle{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;flex-shrink:0;font-weight:700;background:#f1f5f9;color:#0f172a}
+    .switchTrack{display:inline-block;width:44px;height:24px;background:#16a34a;border-radius:999px;position:relative}
+    .switchTrack::after{content:'';position:absolute;top:3px;left:23px;width:18px;height:18px;border-radius:50%;background:white;transition:left .15s}
+    #menuToggle[aria-checked="false"] .switchTrack{background:#64748b}
+    #menuToggle[aria-checked="false"] .switchTrack::after{left:3px}
+    #menuToggle:focus-visible{outline:3px solid #0ea5e9;outline-offset:3px}
     #panel h1{margin:0 0 8px;font-size:15px;font-weight:700}
     .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0}
     .small{font-size:11px;color:#555}
@@ -105,7 +114,11 @@
   <div id="map"></div>
 
   <div id="panel">
-    <h1>実車評価支援ツール Ver5.5</h1>
+    <div class="panelHeader">
+      <h1>実車評価支援ツール Ver5.5</h1>
+      <button id="menuToggle" type="button" role="switch" aria-label="メニュー表示" aria-controls="menuContent" aria-checked="true"><span>メニュー</span><span class="switchTrack" aria-hidden="true"></span><span id="menuState">ON</span></button>
+    </div>
+    <div id="menuContent">
 
     <!-- ファイル読み込み行 -->
     <div class="row">
@@ -142,9 +155,25 @@
     </div>
   </div>
 
+
+  </div>
+
   <button id="fabStop">停止</button>
   <div id="recBadge"><div class="dot"></div>評価中</div>
   <div id="toast"></div>
+
+  <!-- 地図ライブラリの状態にかかわらずメニューを切り替え可能にする -->
+  <script>
+  (() => {
+    const panel = document.getElementById('menuContent');
+    const toggle = document.getElementById('menuToggle');
+    toggle.addEventListener('click', () => {
+      panel.hidden = !panel.hidden;
+      toggle.setAttribute('aria-checked', String(!panel.hidden));
+      document.getElementById('menuState').textContent = panel.hidden ? 'OFF' : 'ON';
+    });
+  })();
+  </script>
 
   <!-- ライブラリ -->
   <script src="leaflet.js"></script>
